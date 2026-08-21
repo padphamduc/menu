@@ -1,0 +1,8 @@
+{
+  "id": "fullscreen",
+  "name": "FULLSCREEN",
+  "description": "Chụp toàn bộ màn hình và phân tích đáp án.",
+  "version": "1.0.0",
+  "entry": "main.py",
+  "order": 20
+}

@@ -1,0 +1,8 @@
+{
+  "id": "tool_moi",
+  "name": "TOOL MỚI",
+  "description": "Mô tả tool của bạn.",
+  "version": "1.0.0",
+  "entry": "main.py",
+  "order": 100
+}

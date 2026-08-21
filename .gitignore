@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+key.txt
+github_token.txt
+tool_config.json
+dapan.txt
+picture/
