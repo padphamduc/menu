@@ -41,10 +41,10 @@ jobs:
       - name: Verify EXE exists
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist\\DucTool.exe")) {
-            throw "dist\\DucTool.exe was not created."
+          if (-not (Test-Path "dist\DucTool.exe")) {
+            throw "dist\DucTool.exe was not created."
           }
-          Get-Item "dist\\DucTool.exe" | Format-List Name,Length,FullName
+          Get-Item "dist\DucTool.exe" | Format-List Name,Length,FullName
 
       - name: Upload DucTool.exe
         uses: actions/upload-artifact@v7

@@ -1,0 +1,3 @@
+Đây là root repo hoàn chỉnh.
+Quan trọng: tools/ nằm ngay ở root repo.
+Có thể chạy PUSH_GITHUB.bat để force-push lên https://github.com/padphamduc/menu
