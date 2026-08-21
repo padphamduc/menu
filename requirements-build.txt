@@ -1,0 +1,7 @@
+pyinstaller==6.15.0
+keyboard
+pyautogui
+colorama
+google-genai
+pydantic
+pillow

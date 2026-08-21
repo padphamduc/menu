@@ -1,0 +1,6 @@
+Ảnh gấu đã được tích hợp làm:
+- Icon DucTool.exe
+- Icon cửa sổ / taskbar
+- Logo 70x70 ở header app
+
+Build lại qua GitHub Actions để nhận DucTool.exe mới.
