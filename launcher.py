@@ -15,13 +15,132 @@ from urllib.parse import urlparse
 import tkinter as tk
 from tkinter import messagebox
 
-LAUNCHER_VERSION = "1.0.0"
+from tkinter import simpledialog
+
+# ============================================================
+# WINDOWS DPAPI - mã hóa GitHub token theo tài khoản Windows
+# ============================================================
+
+def _dpapi_protect(text):
+    """Mã hóa chuỗi bằng Windows DPAPI (Current User)."""
+    if not text:
+        return b""
+    if os.name != "nt":
+        raise RuntimeError("Lưu token an toàn hiện chỉ hỗ trợ Windows.")
+
+    import ctypes
+    from ctypes import wintypes
+
+    class DATA_BLOB(ctypes.Structure):
+        _fields_ = [
+            ("cbData", wintypes.DWORD),
+            ("pbData", ctypes.POINTER(ctypes.c_byte)),
+        ]
+
+    raw = text.encode("utf-8")
+    raw_buffer = ctypes.create_string_buffer(raw)
+    in_blob = DATA_BLOB(
+        len(raw),
+        ctypes.cast(raw_buffer, ctypes.POINTER(ctypes.c_byte))
+    )
+    out_blob = DATA_BLOB()
+
+    crypt32 = ctypes.windll.crypt32
+    kernel32 = ctypes.windll.kernel32
+    CRYPTPROTECT_UI_FORBIDDEN = 0x1
+
+    ok = crypt32.CryptProtectData(
+        ctypes.byref(in_blob),
+        "Duc GitHub Token",
+        None,
+        None,
+        None,
+        CRYPTPROTECT_UI_FORBIDDEN,
+        ctypes.byref(out_blob),
+    )
+    if not ok:
+        raise ctypes.WinError()
+
+    try:
+        return ctypes.string_at(out_blob.pbData, out_blob.cbData)
+    finally:
+        kernel32.LocalFree(out_blob.pbData)
+
+
+def _dpapi_unprotect(data):
+    """Giải mã blob DPAPI bằng chính tài khoản Windows đã lưu."""
+    if not data:
+        return ""
+    if os.name != "nt":
+        return ""
+
+    import ctypes
+    from ctypes import wintypes
+
+    class DATA_BLOB(ctypes.Structure):
+        _fields_ = [
+            ("cbData", wintypes.DWORD),
+            ("pbData", ctypes.POINTER(ctypes.c_byte)),
+        ]
+
+    encrypted = bytes(data)
+    encrypted_buffer = ctypes.create_string_buffer(encrypted)
+    in_blob = DATA_BLOB(
+        len(encrypted),
+        ctypes.cast(encrypted_buffer, ctypes.POINTER(ctypes.c_byte))
+    )
+    out_blob = DATA_BLOB()
+
+    crypt32 = ctypes.windll.crypt32
+    kernel32 = ctypes.windll.kernel32
+    CRYPTPROTECT_UI_FORBIDDEN = 0x1
+
+    ok = crypt32.CryptUnprotectData(
+        ctypes.byref(in_blob),
+        None,
+        None,
+        None,
+        None,
+        CRYPTPROTECT_UI_FORBIDDEN,
+        ctypes.byref(out_blob),
+    )
+    if not ok:
+        return ""
+
+    try:
+        return ctypes.string_at(
+            out_blob.pbData,
+            out_blob.cbData
+        ).decode("utf-8")
+    finally:
+        kernel32.LocalFree(out_blob.pbData)
+
+
+def save_github_token_secure(token):
+    token = (token or "").strip()
+    if not token:
+        if GITHUB_TOKEN_BLOB.exists():
+            GITHUB_TOKEN_BLOB.unlink()
+        return
+    encrypted = _dpapi_protect(token)
+    GITHUB_TOKEN_BLOB.write_bytes(encrypted)
+
+
+def load_github_token_secure():
+    try:
+        if not GITHUB_TOKEN_BLOB.exists():
+            return ""
+        return _dpapi_unprotect(GITHUB_TOKEN_BLOB.read_bytes()).strip()
+    except Exception:
+        return ""
+
+LAUNCHER_VERSION = "1.1.0"
 
 APP_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path(r"C:\duc")
 TOOLS_DIR = BASE_DIR / "tools"
 SETTINGS_FILE = BASE_DIR / "launcher_settings.json"
-GITHUB_TOKEN_FILE = BASE_DIR / "github_token.txt"
+GITHUB_TOKEN_BLOB = BASE_DIR / "github_token.bin"
 GEMINI_KEY_FILE = BASE_DIR / "key.txt"
 
 BASE_DIR.mkdir(parents=True, exist_ok=True)
@@ -40,9 +159,12 @@ GREEN = "#35c98a"
 YELLOW = "#f2b84b"
 RED = "#ff6b73"
 
+FIXED_REPO = "padphamduc/menu"
+FIXED_BRANCH = "main"
+
 DEFAULT_SETTINGS = {
-    "repo": "",
-    "branch": "main",
+    "repo": FIXED_REPO,
+    "branch": FIXED_BRANCH,
     "auto_update": True
 }
 
@@ -173,6 +295,11 @@ class Launcher(tk.Tk):
         if isinstance(loaded, dict):
             self.settings.update(loaded)
 
+        # Repo được tích hợp cố định trong launcher.
+        self.settings["repo"] = FIXED_REPO
+        self.settings["branch"] = FIXED_BRANCH
+        save_json(SETTINGS_FILE, self.settings)
+
         self.update_running = False
         self.tool_buttons = []
 
@@ -186,9 +313,7 @@ class Launcher(tk.Tk):
         self._seed_local_tools()
         self.refresh_tools()
 
-        if not self.settings.get("repo"):
-            self.after(450, self.open_settings)
-        elif self.settings.get("auto_update", True):
+        if self.settings.get("auto_update", True):
             self.after(500, self.check_updates_async)
 
     def _center(self):
@@ -267,7 +392,7 @@ class Launcher(tk.Tk):
 
         tk.Button(
             actions,
-            text="⚙  Cài đặt",
+            text="🔐  GitHub Access",
             command=self.open_settings,
             bg=CARD,
             fg=TEXT,
@@ -658,15 +783,15 @@ class Launcher(tk.Tk):
 
     def open_settings(self):
         win = tk.Toplevel(self)
-        win.title("Cài đặt GitHub")
-        win.geometry("650x390")
+        win.title("GitHub Access")
+        win.geometry("650x410")
         win.configure(bg=BG)
         win.transient(self)
         win.grab_set()
 
         tk.Label(
             win,
-            text="GitHub Repository",
+            text="GitHub đã được tích hợp",
             bg=BG,
             fg=TEXT,
             font=("Segoe UI Semibold", 16)
@@ -674,88 +799,53 @@ class Launcher(tk.Tk):
 
         tk.Label(
             win,
-            text="Dùng repo public không cần token. Repo private có thể nhập token.",
+            text=f"Repository: {FIXED_REPO}",
+            bg=BG,
+            fg=GREEN,
+            font=("Segoe UI Semibold", 10)
+        ).pack(anchor="w", padx=26, pady=(8, 2))
+
+        tk.Label(
+            win,
+            text=f"Branch: {FIXED_BRANCH}",
             bg=BG,
             fg=MUTED,
             font=("Segoe UI", 9)
-        ).pack(anchor="w", padx=26, pady=(0, 15))
-
-        form = tk.Frame(win, bg=BG)
-        form.pack(fill="x", padx=26)
+        ).pack(anchor="w", padx=26)
 
         tk.Label(
-            form, text="Repo URL hoặc owner/repo",
-            bg=BG, fg=MUTED, font=("Segoe UI", 9)
-        ).pack(anchor="w")
+            win,
+            text=(
+                "Repo public: không cần token. "
+                "Repo private: nhập token một lần; Windows sẽ mã hóa token bằng DPAPI."
+            ),
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 9),
+            wraplength=585,
+            justify="left"
+        ).pack(anchor="w", padx=26, pady=(15, 14))
 
-        repo_var = tk.StringVar(value=self.settings.get("repo", ""))
-        repo_entry = tk.Entry(
-            form,
-            textvariable=repo_var,
-            bg=CARD,
-            fg=TEXT,
-            insertbackground=TEXT,
-            relief="flat",
+        has_token = bool(self.github_token())
+        token_status = tk.Label(
+            win,
+            text=(
+                "Private access: ● Đã lưu token mã hóa"
+                if has_token
+                else "Private access: chưa có token"
+            ),
+            bg=BG,
+            fg=GREEN if has_token else YELLOW,
             font=("Segoe UI", 10)
         )
-        repo_entry.pack(fill="x", pady=(4, 12), ipady=8)
-
-        row = tk.Frame(form, bg=BG)
-        row.pack(fill="x")
-
-        left = tk.Frame(row, bg=BG)
-        left.pack(side="left", fill="x", expand=True, padx=(0, 8))
-
-        right = tk.Frame(row, bg=BG)
-        right.pack(side="left", fill="x", expand=True, padx=(8, 0))
-
-        tk.Label(
-            left, text="Branch",
-            bg=BG, fg=MUTED, font=("Segoe UI", 9)
-        ).pack(anchor="w")
-
-        branch_var = tk.StringVar(
-            value=self.settings.get("branch", "main")
-        )
-        tk.Entry(
-            left,
-            textvariable=branch_var,
-            bg=CARD,
-            fg=TEXT,
-            insertbackground=TEXT,
-            relief="flat",
-            font=("Segoe UI", 10)
-        ).pack(fill="x", pady=(4, 12), ipady=8)
-
-        tk.Label(
-            right, text="GitHub Token (không bắt buộc)",
-            bg=BG, fg=MUTED, font=("Segoe UI", 9)
-        ).pack(anchor="w")
-
-        old_token = ""
-        if GITHUB_TOKEN_FILE.exists():
-            old_token = GITHUB_TOKEN_FILE.read_text(
-                encoding="utf-8",
-                errors="ignore"
-            ).strip()
-
-        token_var = tk.StringVar(value=old_token)
-        tk.Entry(
-            right,
-            textvariable=token_var,
-            show="•",
-            bg=CARD,
-            fg=TEXT,
-            insertbackground=TEXT,
-            relief="flat",
-            font=("Segoe UI", 10)
-        ).pack(fill="x", pady=(4, 12), ipady=8)
+        token_status.pack(anchor="w", padx=26, pady=(0, 14))
 
         auto_var = tk.BooleanVar(
             value=bool(self.settings.get("auto_update", True))
         )
+
         tk.Checkbutton(
-            form,
+            win,
             text="Tự kiểm tra và cập nhật khi mở app",
             variable=auto_var,
             bg=BG,
@@ -764,69 +854,110 @@ class Launcher(tk.Tk):
             activebackground=BG,
             activeforeground=TEXT,
             font=("Segoe UI", 9)
-        ).pack(anchor="w", pady=6)
+        ).pack(anchor="w", padx=26, pady=6)
 
-        btns = tk.Frame(win, bg=BG)
-        btns.pack(fill="x", padx=26, pady=20)
+        buttons = tk.Frame(win, bg=BG)
+        buttons.pack(fill="x", padx=26, pady=(18, 6))
 
-        def save_settings():
-            repo = repo_var.get().strip()
-            if repo:
-                try:
-                    owner, repository = parse_repo(repo)
-                    normalized = f"{owner}/{repository}"
-                except Exception as e:
-                    messagebox.showerror("Repo không hợp lệ", str(e))
-                    return
-            else:
-                normalized = ""
+        def set_token():
+            token = simpledialog.askstring(
+                "GitHub Token",
+                (
+                    "Dán GitHub Fine-grained token mới.\n\n"
+                    "Token chỉ được mã hóa và lưu trên máy này."
+                ),
+                parent=win,
+                show="•"
+            )
+            if token is None:
+                return
+            token = token.strip()
+            if not token:
+                return
 
-            self.settings = {
-                "repo": normalized,
-                "branch": branch_var.get().strip() or "main",
-                "auto_update": bool(auto_var.get())
-            }
-            save_json(SETTINGS_FILE, self.settings)
-
-            token = token_var.get().strip()
-            if token:
-                GITHUB_TOKEN_FILE.write_text(
-                    token,
-                    encoding="utf-8"
+            try:
+                save_github_token_secure(token)
+            except Exception as e:
+                messagebox.showerror(
+                    "Không lưu được token",
+                    str(e),
+                    parent=win
                 )
-            elif GITHUB_TOKEN_FILE.exists():
-                GITHUB_TOKEN_FILE.unlink()
+                return
 
-            self._refresh_footer()
-            win.destroy()
+            token_status.config(
+                text="Private access: ● Đã lưu token mã hóa",
+                fg=GREEN
+            )
+            self.set_status("Đã lưu GitHub token an toàn", GREEN)
 
-            if normalized:
-                self.check_updates_async()
+        def remove_token():
+            try:
+                save_github_token_secure("")
+            except Exception:
+                pass
+            token_status.config(
+                text="Private access: chưa có token",
+                fg=YELLOW
+            )
+            self.set_status("Đã xóa GitHub token local", YELLOW)
 
         tk.Button(
-            btns,
-            text="LƯU & ĐỒNG BỘ",
-            command=save_settings,
+            buttons,
+            text="NHẬP / ĐỔI TOKEN",
+            command=set_token,
             bg=PURPLE,
             fg="white",
             activebackground=PURPLE,
+            activeforeground="white",
+            bd=0,
+            padx=16,
+            pady=9,
+            cursor="hand2",
+            font=("Segoe UI Semibold", 9)
+        ).pack(side="left")
+
+        tk.Button(
+            buttons,
+            text="XÓA TOKEN",
+            command=remove_token,
+            bg=CARD,
+            fg=RED,
+            activebackground=CARD_HOVER,
+            activeforeground=RED,
+            bd=0,
+            padx=16,
+            pady=9,
+            cursor="hand2",
+            font=("Segoe UI Semibold", 9)
+        ).pack(side="left", padx=(8, 0))
+
+        def save_and_sync():
+            self.settings["repo"] = FIXED_REPO
+            self.settings["branch"] = FIXED_BRANCH
+            self.settings["auto_update"] = bool(auto_var.get())
+            save_json(SETTINGS_FILE, self.settings)
+            self._refresh_footer()
+            win.destroy()
+            self.check_updates_async()
+
+        tk.Button(
+            win,
+            text="LƯU & ĐỒNG BỘ",
+            command=save_and_sync,
+            bg=GREEN,
+            fg="white",
+            activebackground=GREEN,
             activeforeground="white",
             bd=0,
             padx=20,
             pady=10,
             cursor="hand2",
             font=("Segoe UI Semibold", 9)
-        ).pack(side="right")
-
-        repo_entry.focus_set()
+        ).pack(anchor="e", padx=26, pady=(12, 0))
 
     def github_token(self):
-        if not GITHUB_TOKEN_FILE.exists():
-            return ""
-        return GITHUB_TOKEN_FILE.read_text(
-            encoding="utf-8",
-            errors="ignore"
-        ).strip()
+        return load_github_token_secure()
 
     def download_repo_zip(self, owner, repo, branch, dest):
         url = (
@@ -1067,10 +1198,25 @@ class Launcher(tk.Tk):
                 "Không thể đồng bộ GitHub",
                 RED
             )
-            messagebox.showerror(
-                "Cập nhật thất bại",
-                error
-            )
+            if (
+                ("HTTP 401" in str(error) or "HTTP 404" in str(error))
+                and not self.github_token()
+            ):
+                messagebox.showwarning(
+                    "Repo cần quyền truy cập",
+                    (
+                        f"Không đọc được {FIXED_REPO}.\n\n"
+                        "Nếu repo là PRIVATE, mở “GitHub Access” và nhập "
+                        "một Fine-grained token MỚI có quyền Contents: Read-only.\n\n"
+                        "Nếu repo là PUBLIC thì kiểm tra lại repo/branch."
+                    )
+                )
+                self.open_settings()
+            else:
+                messagebox.showerror(
+                    "Cập nhật thất bại",
+                    error
+                )
             return
 
         self.refresh_tools()
