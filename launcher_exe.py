@@ -1056,17 +1056,57 @@ class Launcher(tk.Tk):
     def find_repo_root(self, extracted):
         extracted = Path(extracted)
 
-        direct = extracted / "tools"
-        if direct.exists():
+        # Trường hợp chuẩn: tools/ nằm ngay dưới root repo sau khi giải nén.
+        if (extracted / "tools").is_dir():
             return extracted
 
-        dirs = [p for p in extracted.iterdir() if p.is_dir()]
-        for d in dirs:
-            if (d / "tools").exists():
-                return d
+        # GitHub zipball thường tạo thêm 1 thư mục owner-repo-hash/.
+        first_level = [
+            p for p in extracted.iterdir()
+            if p.is_dir()
+        ]
+        for folder in first_level:
+            if (folder / "tools").is_dir():
+                return folder
+
+        # Chống trường hợp người dùng upload cả một thư mục dự án vào repo,
+        # ví dụ: repo/duc_github_dynamic_repo/tools/...
+        # Tìm đệ quy nhưng giới hạn độ sâu để tránh quét vô tận.
+        candidates = []
+        for tools_dir in extracted.rglob("tools"):
+            if not tools_dir.is_dir():
+                continue
+
+            try:
+                rel = tools_dir.relative_to(extracted)
+            except Exception:
+                continue
+
+            # Chỉ nhận tools nằm không quá 4 cấp dưới thư mục giải nén.
+            if len(rel.parts) > 4:
+                continue
+
+            # Phải có ít nhất một tool.json ở bên dưới thì mới coi là tools hợp lệ.
+            has_tool_json = any(
+                p.is_file()
+                for p in tools_dir.glob("*/tool.json")
+            )
+            if has_tool_json:
+                candidates.append(tools_dir.parent)
+
+        if candidates:
+            # Ưu tiên đường dẫn nông nhất.
+            candidates.sort(
+                key=lambda p: len(p.relative_to(extracted).parts)
+            )
+            return candidates[0]
 
         raise RuntimeError(
-            "Repository không có thư mục tools/."
+            "Không tìm thấy thư mục tools/ hợp lệ trên GitHub.\n\n"
+            "Cấu trúc cần có:\n"
+            "tools/seb/tool.json\n"
+            "tools/fullscreen/tool.json\n"
+            "tools/file_solver/tool.json"
         )
 
     def sync_from_repo(self):

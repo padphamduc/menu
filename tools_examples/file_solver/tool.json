@@ -1,7 +1,7 @@
 {
   "id": "file_solver",
-  "name": "FILE → CLIPBOARD",
-  "description": "Đọc đề trong C:\\duc\\file, giải tất cả câu và copy kết quả.",
+  "name": "Tool gửi file và nhận bằng clipboard",
+  "description": "Copy đề vào C:\\duc\\file , đợi chuột load thì đáp án từ gemini đã lưu vào trong clipboard",
   "version": "1.0.0",
   "entry": "main.py",
   "order": 30

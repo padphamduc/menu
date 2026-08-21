@@ -1,7 +1,7 @@
 {
   "id": "seb",
   "name": "SEB",
-  "description": "Chụp vùng 4/5 màn hình và phân tích đáp án.",
+  "description": "Chụp 4/5 màn hình không bị dính thời gian và phân tích đáp án ( Trỏ đến KHUNG ĐÁP ÁN đúng có thể không chuẩn nút bấm )",
   "version": "1.0.0",
   "entry": "main.py",
   "order": 10

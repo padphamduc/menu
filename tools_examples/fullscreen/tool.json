@@ -1,8 +1,8 @@
 {
   "id": "fullscreen",
-  "name": "FULLSCREEN",
-  "description": "Chụp toàn bộ màn hình và phân tích đáp án.",
-  "version": "1.0.0",
+  "name": "AI Chọn Đáp Án",
+  "description": "Chụp toàn bộ màn hình và phân tích đáp án ( Trỏ đến KHUNG ĐÁP ÁN đúng có thể không chuẩn nút bấm )",
+  "version": "1.0.1",
   "entry": "main.py",
   "order": 20
 }
