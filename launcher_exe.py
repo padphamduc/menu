@@ -17,6 +17,16 @@ from tkinter import messagebox
 
 from tkinter import simpledialog
 
+# Dependencies used by downloaded tools. These imports make PyInstaller bundle
+# the runtime modules so dynamically downloaded .py tools can run without
+# Python being installed on the target computer.
+import keyboard  # noqa: F401
+import pyautogui  # noqa: F401
+import colorama  # noqa: F401
+from google import genai  # noqa: F401
+import pydantic  # noqa: F401
+
+
 # ============================================================
 # WINDOWS DPAPI - mã hóa GitHub token theo tài khoản Windows
 # ============================================================
@@ -134,7 +144,7 @@ def load_github_token_secure():
     except Exception:
         return ""
 
-LAUNCHER_VERSION = "1.1.0"
+LAUNCHER_VERSION = "2.0.0"
 
 APP_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path(r"C:\duc")
@@ -284,6 +294,62 @@ def copy_tool(remote_folder, local_folder, remote_hash):
 
     tmp.rename(local_folder)
     shutil.rmtree(old, ignore_errors=True)
+
+
+def _attach_tool_console():
+    """Allocate a real Windows console for a tool launched from GUI EXE."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.AllocConsole()
+
+        # Re-bind Python streams to the newly allocated console.
+        sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")
+        sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace", buffering=1)
+        sys.stderr = open("CONOUT$", "w", encoding="utf-8", errors="replace", buffering=1)
+
+        try:
+            kernel32.SetConsoleOutputCP(65001)
+            kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def run_downloaded_tool(entry_path):
+    """Run a downloaded Python tool using the interpreter embedded in this EXE."""
+    import runpy
+
+    entry = Path(entry_path).resolve()
+    if not entry.exists():
+        _attach_tool_console()
+        print(f"Không tìm thấy tool: {entry}")
+        input("Enter để đóng...")
+        return 2
+
+    _attach_tool_console()
+    os.chdir(str(entry.parent))
+    sys.argv = [str(entry)]
+
+    try:
+        runpy.run_path(str(entry), run_name="__main__")
+        return 0
+    except SystemExit as e:
+        try:
+            return int(e.code or 0)
+        except Exception:
+            return 0
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        try:
+            input("\nCó lỗi. Nhấn Enter để đóng...")
+        except Exception:
+            pass
+        return 1
 
 
 class Launcher(tk.Tk):
@@ -678,23 +744,24 @@ class Launcher(tk.Tk):
             return
 
         try:
-            py = self.python_executable()
-            if os.name == "nt":
-                creationflags = getattr(
-                    subprocess,
-                    "CREATE_NEW_CONSOLE",
-                    0
-                )
-                subprocess.Popen(
-                    [py, str(entry)],
-                    cwd=str(folder),
-                    creationflags=creationflags
-                )
+            if getattr(sys, "frozen", False):
+                # The same EXE becomes a child Python runner. No system Python needed.
+                cmd = [sys.executable, "--run-tool", str(entry)]
             else:
-                subprocess.Popen(
-                    [py, str(entry)],
-                    cwd=str(folder)
-                )
+                # Development mode when launcher_exe.py is run with normal Python.
+                cmd = [sys.executable, str(Path(__file__).resolve()), "--run-tool", str(entry)]
+
+            creationflags = 0
+            if os.name == "nt":
+                # The child calls AllocConsole itself. DETACHED_PROCESS avoids a console
+                # flashing behind the GUI launcher before the tool console is allocated.
+                creationflags = getattr(subprocess, "DETACHED_PROCESS", 0)
+
+            subprocess.Popen(
+                cmd,
+                cwd=str(folder),
+                creationflags=creationflags
+            )
 
             self.set_status(
                 f"Đã mở {meta.get('name', meta.get('id'))}",
@@ -1097,42 +1164,12 @@ class Launcher(tk.Tk):
                     )
                     updated += 1
 
-            launcher_update_available = False
-            remote_version_file = root / "launcher" / "version.json"
-            remote_launcher = root / "launcher" / "launcher.py"
-            remote_bat = root / "launcher" / "START_APP.bat"
-
-            if remote_version_file.exists() and remote_launcher.exists():
-                remote_ver_data = safe_json_read(
-                    remote_version_file,
-                    {}
-                )
-                remote_ver = str(
-                    (remote_ver_data or {}).get(
-                        "version",
-                        "0.0.0"
-                    )
-                )
-
-                if version_tuple(remote_ver) > version_tuple(LAUNCHER_VERSION):
-                    try:
-                        shutil.copy2(
-                            remote_launcher,
-                            APP_DIR / "launcher.py"
-                        )
-                        if remote_bat.exists():
-                            shutil.copy2(
-                                remote_bat,
-                                APP_DIR / "START_APP.bat"
-                            )
-                        launcher_update_available = True
-                    except Exception:
-                        pass
-
+            # Tool updates are fully dynamic. The frozen EXE itself is not overwritten
+            # while running; publish a new EXE only when launcher functionality changes.
             return {
                 "discovered": discovered,
                 "updated": updated,
-                "launcher_updated": launcher_update_available
+                "launcher_updated": False
             }
 
     def check_updates_async(self):
@@ -1245,4 +1282,7 @@ class Launcher(tk.Tk):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 3 and sys.argv[1] == "--run-tool":
+        raise SystemExit(run_downloaded_tool(sys.argv[2]))
+
     Launcher().mainloop()
