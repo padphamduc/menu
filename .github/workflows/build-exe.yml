@@ -12,37 +12,42 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+
     permissions:
       contents: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
+          cache-dependency-path: "requirements-build.txt"
 
       - name: Install build dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-build.txt
+          python -m pip install -r requirements-build.txt
 
-      - name: Build single-file EXE
+      - name: Build DucTool.exe
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean DucTool.spec
+          python -m PyInstaller --noconfirm --clean DucTool.spec
 
-      - name: Show output
+      - name: Verify EXE exists
         shell: pwsh
         run: |
-          Get-Item dist\DucTool.exe | Format-List Name,Length,FullName
+          if (-not (Test-Path "dist\DucTool.exe")) {
+            throw "dist\DucTool.exe was not created."
+          }
+          Get-Item "dist\DucTool.exe" | Format-List Name,Length,FullName
 
       - name: Upload DucTool.exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DucTool-Windows
           path: dist/DucTool.exe
