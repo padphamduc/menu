@@ -1,0 +1,8 @@
+{
+  "id": "screenshot_clipboard",
+  "name": "Tool Chụp Màn -> Đáp Án Về Clipboard",
+  "description": "Nút 1 chụp thêm bao nhiêu ảnh tùy ý; Nút 2 gửi toàn bộ ảnh đang chờ sang Gemini và copy đáp án về Clipboard.",
+  "version": "1.1.0",
+  "entry": "main.py",
+  "order": 30
+}

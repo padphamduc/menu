@@ -1,0 +1,10 @@
+{
+  "id": "seb_vip",
+  "name": "Mở SEB_VIP",
+  "description": "Nếu chưa có sẽ tải SEB_VIP.7z, giải nén vào C:\\duc\\SEB_VIP, xóa gói cài và mở SafeExamBrowser.exe. Nếu đã có thì mở trực tiếp.",
+  "version": "1.0.0",
+  "entry": "main.py",
+  "order": 50,
+  "show_setup": false,
+  "button_text": "MỞ SEB"
+}
