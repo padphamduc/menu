@@ -1,0 +1,10 @@
+{
+  "id": "seb_vip",
+  "name": "Mở SEB_VIP",
+  "description": "Mở SEB_VIP; nếu chưa có thì chọn tải qua MEGA, Google Drive hoặc GitHub, giải nén BCJ2 bằng 7zr và mở SEB.",
+  "version": "2.0.0",
+  "entry": "main.py",
+  "order": 50,
+  "show_setup": false,
+  "button_text": "MỞ SEB"
+}

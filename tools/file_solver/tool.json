@@ -1,0 +1,8 @@
+{
+  "id": "file_solver",
+  "name": "Tool Gửi Đề -> Đáp Án Về Clipboard",
+  "description": "Copy đề vào C:\\duc\\file , đợi chuột load thì đáp án từ gemini đã lưu vào trong clipboard",
+  "version": "1.0.2",
+  "entry": "main.py",
+  "order": 40
+}
