@@ -1,0 +1,19 @@
+FIX v2.2.2
+
+Đã sửa:
+- NameError: STOCKFISH_DRAG_START_HOLD
+- NameError: DRAG_DELAY_INDEX
+- Bổ sung đầy đủ:
+  STOCKFISH_DRAG_DURATION
+  STOCKFISH_DRAG_STEPS
+  STOCKFISH_DRAG_START_HOLD
+  STOCKFISH_DRAG_END_HOLD
+  DRAG_DELAY_PRESETS
+  DRAG_DELAY_INDEX
+- F10 tự đồng bộ index theo delay hiện tại.
+- Khi mở Chess tool sẽ in [DRAG CONFIG] để kiểm tra cấu hình đã load.
+
+QUAN TRỌNG:
+Nếu C:\duc\tools\chess\main.py đã tồn tại từ bản cũ,
+hãy build/chạy bản DUCTOOL mới hoặc xóa thư mục C:\duc\tools\chess
+để launcher chép bản tool mới xuống.

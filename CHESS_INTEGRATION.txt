@@ -1,0 +1,18 @@
+DUCTOOL 2.2.0 - Chess integration
+
+Mục mới trong menu:
+DUCTOOL Hỗ Trợ Cờ Vua
+
+F2  = chọn vùng bàn cờ ngoài
+F6  = ghim/bỏ ghim
+F7  = bật/tắt kéo thả Stockfish
+F10 = đổi thời gian kéo:
+      0.20 -> 0.35 -> 0.50 -> 0.70 -> 1.00 -> 1.25 -> 1.50 -> 2.00 giây
+
+Stockfish mặc định:
+C:\stockfish\stockfish-windows-x86-64-avx2.exe
+
+Build:
+BUILD_EXE.bat
+Kết quả:
+dist\DucTool.exe

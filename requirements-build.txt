@@ -1,0 +1,14 @@
+pyinstaller==6.15.0
+keyboard
+pyautogui
+colorama
+google-genai
+pydantic
+pillow
+pystray
+opencv-python
+requests
+
+pygame
+python-chess
+pywin32

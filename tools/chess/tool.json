@@ -1,0 +1,8 @@
+{
+  "id": "chess",
+  "name": "DUCTOOL Hỗ Trợ Cờ Vua",
+  "description": "Stockfish + thiết lập bàn cờ + F2 chọn bàn ngoài + kéo thả nước Stockfish chậm. F10 đổi delay kéo.",
+  "version": "1.0.0",
+  "entry": "main.py",
+  "order": 40
+}
