@@ -1,0 +1,8 @@
+{
+  "id": "seb_writing",
+  "name": "Tool Chụp Màn V2 -> SEB writing",
+  "description": "Chuyên đề Writing/Tự luận SEB. Chụp ảnh hoặc Ctrl+Shift+R bôi đen đề -> Gemini làm bài -> Tự gõ đáp án vào SEB bằng phím '-' hoặc Ctrl+V.",
+  "version": "1.0.0",
+  "entry": "main.py",
+  "order": 30
+}

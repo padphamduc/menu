@@ -72,7 +72,11 @@ except Exception:
 BASE_DIR = Path(r"C:\duc")
 BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-CONFIG_FILE = BASE_DIR / "tool_config.json"
+CONFIG_DIR = BASE_DIR / "configs"
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+CONFIG_FILE = CONFIG_DIR / "file_solver.json"
+LEGACY_CONFIG_FILE = BASE_DIR / "tool_config.json"
 KEY_FILE = BASE_DIR / "key.txt"
 
 # Nguồn dữ liệu cần gửi lên Gemini.
@@ -81,6 +85,7 @@ KEY_FILE = BASE_DIR / "key.txt"
 #   2) C:\duc\file là một THƯ MỤC chứa file
 #      -> tool sẽ lấy file mới nhất trong thư mục đó
 FILE_SOURCE = BASE_DIR / "file"
+
 
 
 # ============================================================
@@ -224,14 +229,27 @@ def save_config(config):
 
 
 def load_config():
-    if not CONFIG_FILE.exists():
-        return None
+    # Ưu tiên config riêng của tool.
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+                return json.load(file)
+        except Exception:
+            return None
 
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
-            return json.load(file)
-    except Exception:
-        return None
+    # Tự migrate config cũ C:\duc\tool_config.json nếu có.
+    if LEGACY_CONFIG_FILE.exists():
+        try:
+            with open(LEGACY_CONFIG_FILE, "r", encoding="utf-8") as file:
+                legacy = json.load(file)
+
+            if isinstance(legacy, dict):
+                save_config(legacy)
+                return legacy
+        except Exception:
+            pass
+
+    return None
 
 
 # ============================================================
@@ -296,7 +314,7 @@ def input_new_api():
         print()
         print(CYAN + "⌨ Bạn có thể Ctrl+V hoặc chuột phải để dán API.")
         print("📁 API sẽ được lưu tại C:\\duc\\key.txt")
-        print(YELLOW + "⚠ API sẽ HIỆN trên màn hình khi nhập.")
+        print(YELLOW + "⚠ Vào https://aistudio.google.com/api-keys")
 
         # QUAN TRỌNG:
         # Dùng input() thay vì getpass để paste bình thường.
@@ -417,8 +435,8 @@ def choose_hotkeys():
 # SETUP
 # ============================================================
 
-def create_new_config():
-    api_key = input_new_api()
+def create_new_hotkeys_config(old_config=None):
+    old_config = old_config or {}
     model_config = choose_model()
     analyze_hotkey, click_hotkey = choose_hotkeys()
 
@@ -429,49 +447,69 @@ def create_new_config():
         "daily_limit": model_config["daily_limit"],
         "hotkey": analyze_hotkey,
         "click_hotkey": click_hotkey,
-        "crop_left_ratio": 0.20,
-        "crop_top_ratio": 0.20,
-        "click_x_ratio": 0.03
+        "crop_left_ratio": old_config.get("crop_left_ratio", 0.20),
+        "crop_top_ratio": old_config.get("crop_top_ratio", 0.20),
+        "click_x_ratio": old_config.get("click_x_ratio", 0.03),
     }
 
     save_config(config)
-    return api_key, config
+    return config
 
 
 def setup():
     show_banner()
     old_config = load_config()
+    old_api = load_api_key()
 
-    print(CYAN + "✦ Bắt đầu vui lòng chọn cấu hình mới hay dùng cấu hình cũ Y/N :")
-    print(GREEN + "  [Y] Cấu hình mới" + RESET + "   " + YELLOW + "[N] Dùng cấu hình cũ")
-    while True:
-        option = input(WHITE + "➤ Lựa chọn Y/N : " + RESET).strip().upper()
+    print(CYAN + "✦ BẮT ĐẦU CẤU HÌNH TOOL:")
+    print()
 
-        if option == "Y":
-            return create_new_config()
+    # --- CÂU HỎI 1: THAY ĐỔI API GEMINI ---
+    api_key = None
+    if old_api:
+        masked = old_api[:6] + "..." + old_api[-4:] if len(old_api) > 10 else "***"
+        print(WHITE + f"🔑 API Gemini hiện tại: {YELLOW}{masked}")
+        print(CYAN + "✦ Bạn có muốn thay đổi API Gemini cũ không? (Y/N)")
+        while True:
+            ans = input(WHITE + "➤ Lựa chọn Y/N: " + RESET).strip().upper()
+            if ans == "Y":
+                api_key = input_new_api()
+                break
+            elif ans == "N":
+                if validate_api(old_api):
+                    api_key = old_api
+                    print(GREEN + "✔ Tiếp tục sử dụng API Gemini cũ.")
+                    break
+                else:
+                    print(YELLOW + "⚠ API cũ không sử dụng được. Vui lòng nhập API mới:")
+                    api_key = input_new_api()
+                    break
+            print(RED + "❌ Chỉ nhập Y hoặc N.")
+    else:
+        print(YELLOW + "⚠ Chưa tìm thấy API Gemini cũ tại C:\\duc\\key.txt.")
+        api_key = input_new_api()
 
-        if option == "N":
-            if not old_config:
-                print()
-                print("❌ Chưa có cấu hình cũ.")
-                print("Chuyển sang tạo cấu hình mới.")
-                return create_new_config()
+    # --- CÂU HỎI 2: THAY LẠI HOTKEY MỚI ---
+    config = None
+    if old_config:
+        print()
+        print(CYAN + "✦ Bạn có muốn thay lại hotkey mới không? (Y/N)")
+        while True:
+            ans = input(WHITE + "➤ Lựa chọn Y/N: " + RESET).strip().upper()
+            if ans == "Y":
+                config = create_new_hotkeys_config(old_config)
+                break
+            elif ans == "N":
+                config = old_config
+                print(GREEN + "✔ Tiếp tục sử dụng cấu hình hotkey đã lưu.")
+                break
+            print(RED + "❌ Chỉ nhập Y hoặc N.")
+    else:
+        print()
+        print(YELLOW + "⚠ Chưa có cấu hình hotkey cũ. Thiết lập hotkey ban đầu:")
+        config = create_new_hotkeys_config()
 
-            api_key = get_old_api()
-
-            print()
-            print("✅ Đang dùng cấu hình cũ:")
-            print(
-                "Model:",
-                old_config.get(
-                    "model_name",
-                    old_config.get("model", "Unknown")
-                )
-            )
-
-            return api_key, old_config
-
-        print("❌ Chỉ nhập Y hoặc N.")
+    return api_key, config
 
 
 # ============================================================
@@ -550,36 +588,34 @@ busy_lock = threading.Lock()
 # ============================================================
 
 QUIZ_PROMPT = """
-Đọc kỹ TOÀN BỘ file được đính kèm.
+Đọc kỹ TOÀN BỘ nội dung đề bài được gửi kèm.
+Dữ liệu đầu vào có thể gồm một hoặc nhiều ảnh chụp màn hình hoặc một file đề bài.
 
 NHIỆM VỤ:
-- Giải TẤT CẢ các câu hỏi/bài tập có trong file.
+- Giải TẤT CẢ các câu hỏi/bài tập nhìn thấy trong dữ liệu được gửi.
 - Không bỏ sót câu nào.
 - Giữ đúng thứ tự câu như trong đề.
+- Nếu cùng một câu xuất hiện lặp lại nhiều lần, chỉ trả đáp án cho câu đó một lần.
 
-Nếu đây là đề SQL:
-- Viết câu lệnh SQL hoàn chỉnh, chạy được.
+NẾU LÀ CÂU HỎI TRẮC NGHIỆM:
+- Chỉ trả về số câu + chữ cái đáp án đúng.
+- Nếu một câu có nhiều đáp án đúng, ghi đủ các chữ cái đúng liền nhau.
+- Ví dụ: 1A 2C 3BD 4ACD
+- Không giải thích đáp án trắc nghiệm.
+
+NẾU LÀ SQL HOẶC BÀI TỰ LUẬN/CODE:
+- Trả lời đầy đủ theo từng câu.
+- Mỗi câu bắt đầu bằng đúng số/thứ tự của câu trong đề.
+- Nếu là SQL, viết câu lệnh SQL hoàn chỉnh, chạy được.
 - Giữ đúng tên bảng và tên cột trong đề.
 - Dùng đúng hệ quản trị SQL mà đề yêu cầu.
 - Nếu là SQL Server và có chuỗi Unicode tiếng Việt, dùng N'...'.
 
-ĐỊNH DẠNG PHẢN HỒI BẮT BUỘC:
-- Mỗi câu bắt đầu bằng tiêu đề theo đúng số/thứ tự trong đề, ví dụ:
-  CÂU 1:
-  <nội dung đáp án câu 1>
-
-  CÂU 2:
-  <nội dung đáp án câu 2>
-
-  ...
-- Tiếp tục cho đến câu cuối cùng có trong file.
-
-YÊU CẦU:
+YÊU CẦU CHUNG:
 - Trả lời trực tiếp đáp án.
-- Không viết lời mở đầu.
-- Không dùng Markdown code fence ``` .
-- Không bỏ sót bất kỳ câu nào.
-- Nếu một câu yêu cầu SQL thì phần đáp án của câu đó phải là mã SQL hoàn chỉnh.
+- Không viết lời mở đầu hoặc kết luận.
+- Không dùng Markdown code fence ```.
+- Không thêm nội dung không cần thiết.
 - Toàn bộ phản hồi sẽ được copy nguyên văn vào clipboard.
 """
 

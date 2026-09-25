@@ -7,6 +7,8 @@ on:
       - "launcher_exe.py"
       - "DucTool.spec"
       - "requirements-build.txt"
+      - "tools/**"
+      - "assets/**"
       - ".github/workflows/build-exe.yml"
 
 jobs:

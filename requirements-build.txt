@@ -5,3 +5,9 @@ colorama
 google-genai
 pydantic
 pillow
+pystray
+opencv-python
+requests
+pyperclip
+pycryptodome
+pycryptodomex

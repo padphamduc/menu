@@ -72,13 +72,18 @@ except Exception:
 BASE_DIR = Path(r"C:\duc")
 BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-CONFIG_FILE = BASE_DIR / "tool_config.json"
+CONFIG_DIR = BASE_DIR / "configs"
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+CONFIG_FILE = CONFIG_DIR / "seb.json"
+LEGACY_CONFIG_FILE = BASE_DIR / "tool_config.json"
 KEY_FILE = BASE_DIR / "key.txt"
 
 PICTURE_DIR = BASE_DIR / "picture"
 PICTURE_DIR.mkdir(parents=True, exist_ok=True)
 
 ANSWER_FILE = BASE_DIR / "dapan.txt"
+
 
 
 # ============================================================
@@ -139,13 +144,17 @@ pyautogui.PAUSE = 0.02
 # ============================================================
 
 class QuizResult(BaseModel):
-    answer: Literal["A", "B", "C", "D"]
-
-    box_2d: List[int] = Field(
+    answers: List[Literal["A", "B", "C", "D"]] = Field(
         description=(
-            "Bounding box của hàng chứa đáp án đúng "
-            "theo [ymin, xmin, ymax, xmax], "
-            "tọa độ chuẩn hóa 0-1000."
+            "Danh sách tất cả đáp án đúng. "
+            "Nếu câu chỉ có 1 đáp án đúng thì vẫn trả về mảng có 1 phần tử."
+        )
+    )
+
+    boxes_2d: List[List[int]] = Field(
+        description=(
+            "Danh sách bounding box tương ứng với từng đáp án đúng. "
+            "Mỗi box có dạng [ymin, xmin, ymax, xmax], tọa độ chuẩn hóa 0-1000."
         )
     )
 
@@ -222,14 +231,27 @@ def save_config(config):
 
 
 def load_config():
-    if not CONFIG_FILE.exists():
-        return None
+    # Ưu tiên config riêng của tool.
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+                return json.load(file)
+        except Exception:
+            return None
 
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
-            return json.load(file)
-    except Exception:
-        return None
+    # Tự migrate config cũ C:\duc\tool_config.json nếu có.
+    if LEGACY_CONFIG_FILE.exists():
+        try:
+            with open(LEGACY_CONFIG_FILE, "r", encoding="utf-8") as file:
+                legacy = json.load(file)
+
+            if isinstance(legacy, dict):
+                save_config(legacy)
+                return legacy
+        except Exception:
+            pass
+
+    return None
 
 
 # ============================================================
@@ -294,7 +316,7 @@ def input_new_api():
         print()
         print(CYAN + "⌨ Bạn có thể Ctrl+V hoặc chuột phải để dán API.")
         print("📁 API sẽ được lưu tại C:\\duc\\key.txt")
-        print(YELLOW + "⚠ API sẽ HIỆN trên màn hình khi nhập.")
+        print(YELLOW + "⚠ Vào https://aistudio.google.com/api-keys")
 
         # QUAN TRỌNG:
         # Dùng input() thay vì getpass để paste bình thường.
@@ -415,8 +437,8 @@ def choose_hotkeys():
 # SETUP
 # ============================================================
 
-def create_new_config():
-    api_key = input_new_api()
+def create_new_hotkeys_config(old_config=None):
+    old_config = old_config or {}
     model_config = choose_model()
     analyze_hotkey, click_hotkey = choose_hotkeys()
 
@@ -427,49 +449,69 @@ def create_new_config():
         "daily_limit": model_config["daily_limit"],
         "hotkey": analyze_hotkey,
         "click_hotkey": click_hotkey,
-        "crop_left_ratio": 0.20,
-        "crop_top_ratio": 0.20,
-        "click_x_ratio": 0.03
+        "crop_left_ratio": old_config.get("crop_left_ratio", 0.20),
+        "crop_top_ratio": old_config.get("crop_top_ratio", 0.20),
+        "click_x_ratio": old_config.get("click_x_ratio", 0.03),
     }
 
     save_config(config)
-    return api_key, config
+    return config
 
 
 def setup():
     show_banner()
     old_config = load_config()
+    old_api = load_api_key()
 
-    print(CYAN + "✦ Bắt đầu vui lòng chọn cấu hình mới hay dùng cấu hình cũ Y/N :")
-    print(GREEN + "  [Y] Cấu hình mới" + RESET + "   " + YELLOW + "[N] Dùng cấu hình cũ")
-    while True:
-        option = input(WHITE + "➤ Lựa chọn Y/N : " + RESET).strip().upper()
+    print(CYAN + "✦ BẮT ĐẦU CẤU HÌNH TOOL:")
+    print()
 
-        if option == "Y":
-            return create_new_config()
+    # --- CÂU HỎI 1: THAY ĐỔI API GEMINI ---
+    api_key = None
+    if old_api:
+        masked = old_api[:6] + "..." + old_api[-4:] if len(old_api) > 10 else "***"
+        print(WHITE + f"🔑 API Gemini hiện tại: {YELLOW}{masked}")
+        print(CYAN + "✦ Bạn có muốn thay đổi API Gemini cũ không? (Y/N)")
+        while True:
+            ans = input(WHITE + "➤ Lựa chọn Y/N: " + RESET).strip().upper()
+            if ans == "Y":
+                api_key = input_new_api()
+                break
+            elif ans == "N":
+                if validate_api(old_api):
+                    api_key = old_api
+                    print(GREEN + "✔ Tiếp tục sử dụng API Gemini cũ.")
+                    break
+                else:
+                    print(YELLOW + "⚠ API cũ không sử dụng được. Vui lòng nhập API mới:")
+                    api_key = input_new_api()
+                    break
+            print(RED + "❌ Chỉ nhập Y hoặc N.")
+    else:
+        print(YELLOW + "⚠ Chưa tìm thấy API Gemini cũ tại C:\\duc\\key.txt.")
+        api_key = input_new_api()
 
-        if option == "N":
-            if not old_config:
-                print()
-                print("❌ Chưa có cấu hình cũ.")
-                print("Chuyển sang tạo cấu hình mới.")
-                return create_new_config()
+    # --- CÂU HỎI 2: THAY LẠI HOTKEY MỚI ---
+    config = None
+    if old_config:
+        print()
+        print(CYAN + "✦ Bạn có muốn thay lại hotkey mới không? (Y/N)")
+        while True:
+            ans = input(WHITE + "➤ Lựa chọn Y/N: " + RESET).strip().upper()
+            if ans == "Y":
+                config = create_new_hotkeys_config(old_config)
+                break
+            elif ans == "N":
+                config = old_config
+                print(GREEN + "✔ Tiếp tục sử dụng cấu hình hotkey đã lưu.")
+                break
+            print(RED + "❌ Chỉ nhập Y hoặc N.")
+    else:
+        print()
+        print(YELLOW + "⚠ Chưa có cấu hình hotkey cũ. Thiết lập hotkey ban đầu:")
+        config = create_new_hotkeys_config()
 
-            api_key = get_old_api()
-
-            print()
-            print("✅ Đang dùng cấu hình cũ:")
-            print(
-                "Model:",
-                old_config.get(
-                    "model_name",
-                    old_config.get("model", "Unknown")
-                )
-            )
-
-            return api_key, old_config
-
-        print("❌ Chỉ nhập Y hoặc N.")
+    return api_key, config
 
 
 # ============================================================
@@ -528,9 +570,8 @@ CLICK_X_RATIO = 0.03
 # TỌA ĐỘ ĐÃ XÁC ĐỊNH GẦN NHẤT
 # ============================================================
 
-last_screen_x = None
-last_screen_y = None
-last_answer = None
+last_click_points = []
+last_answers = []
 
 coordinate_lock = threading.Lock()
 
@@ -548,34 +589,31 @@ busy_lock = threading.Lock()
 # ============================================================
 
 QUIZ_PROMPT = """
-Đây là ảnh chụp vùng 4/5 bên phải và 4/5 phía dưới của giao diện quiz DEMO.
+Đây là ảnh chụp giao diện quiz DEMO.
 
 Trong ảnh có một câu hỏi trắc nghiệm và
 các lựa chọn A, B, C, D.
 
 Nhiệm vụ:
-
 1. Đọc kỹ câu hỏi.
 2. Đọc đầy đủ tất cả lựa chọn.
 3. Giải câu hỏi.
-4. Xác định đáp án đúng A/B/C/D.
-5. Xác định vị trí theo chiều dọc của
-   TOÀN BỘ HÀNG chứa đáp án đúng.
+4. Nếu câu chỉ có 1 đáp án đúng, trả về đúng 1 đáp án.
+5. Nếu câu có NHIỀU đáp án đúng, phải trả về TẤT CẢ đáp án đúng.
+6. Với MỖI đáp án đúng, xác định vị trí của TOÀN BỘ HÀNG chứa đáp án đó.
 
-Trả về:
-answer: A, B, C hoặc D
+Trả về JSON theo dạng:
+answers: ["A"] hoặc ["A", "C"] hoặc ["A", "B", "D"]
+boxes_2d: [[ymin, xmin, ymax, xmax], ...]
 
-box_2d:
-[ymin, xmin, ymax, xmax]
-
-Tọa độ chuẩn hóa từ 0 đến 1000.
-
-0,0 là góc trái trên.
-1000,1000 là góc phải dưới.
-
-QUAN TRỌNG:
-- box_2d phải nằm trên hàng đáp án đúng.
-- Ưu tiên toàn bộ hàng đáp án.
+Quy tắc:
+- Số phần tử của answers và boxes_2d phải bằng nhau.
+- Thứ tự answers phải khớp với thứ tự boxes_2d.
+- Nếu câu có nhiều đáp án đúng, trả về theo thứ tự từ trên xuống dưới.
+- Mỗi box_2d phải nằm trên hàng đáp án đúng tương ứng.
+- Ưu tiên bao trọn toàn bộ hàng đáp án.
+- Tọa độ chuẩn hóa từ 0 đến 1000.
+- 0,0 là góc trái trên. 1000,1000 là góc phải dưới.
 - Không chọn Next.
 - Không chọn Previous.
 - Không chọn Submit.
@@ -621,11 +659,11 @@ def get_next_screenshot_path():
 # Nếu ảnh đã có dòng trong file, cập nhật lại dòng đó.
 # ============================================================
 
-def save_answer_for_image(image_path, answer):
+def save_answer_for_image(image_path, answer_values):
 
     image_name = Path(image_path).name
 
-    answers = {}
+    stored_answers = {}
 
     if ANSWER_FILE.exists():
         try:
@@ -645,12 +683,21 @@ def save_answer_for_image(image_path, answer):
                 value = value.strip().upper()
 
                 if name:
-                    answers[name] = value
+                    stored_answers[name] = value
 
         except Exception:
-            answers = {}
+            stored_answers = {}
 
-    answers[image_name] = str(answer).strip().upper()
+    if isinstance(answer_values, (list, tuple)):
+        answer_text = ",".join(
+            str(item).strip().upper()
+            for item in answer_values
+            if str(item).strip()
+        )
+    else:
+        answer_text = str(answer_values).strip().upper()
+
+    stored_answers[image_name] = answer_text
 
     def image_number(name):
         try:
@@ -661,12 +708,12 @@ def save_answer_for_image(image_path, answer):
             return 999999
 
     ordered_names = sorted(
-        answers.keys(),
+        stored_answers.keys(),
         key=image_number
     )
 
     content = "\n".join(
-        f"{name} = {answers[name]}"
+        f"{name} = {stored_answers[name]}"
         for name in ordered_names
     )
 
@@ -744,11 +791,53 @@ def show_loading_cursor_once(duration=0.6):
 
 
 # ============================================================
+# PARSE KẾT QUẢ GEMINI
+# Hỗ trợ cả format cũ (1 đáp án) và mới (nhiều đáp án).
+# ============================================================
+
+def parse_quiz_result(output_text):
+    raw = json.loads(output_text)
+
+    if not isinstance(raw, dict):
+        raise ValueError("Gemini trả về JSON không hợp lệ")
+
+    if "answers" in raw and "boxes_2d" in raw:
+        answers = raw.get("answers") or []
+        boxes = raw.get("boxes_2d") or []
+    elif "answer" in raw and "box_2d" in raw:
+        answers = [raw.get("answer")]
+        boxes = [raw.get("box_2d")]
+    else:
+        raise ValueError("Gemini không trả đúng keys answers/boxes_2d")
+
+    cleaned_answers = []
+    for item in answers:
+        value = str(item).strip().upper()
+        if value not in {"A", "B", "C", "D"}:
+            raise ValueError(f"Đáp án không hợp lệ: {item}")
+        cleaned_answers.append(value)
+
+    cleaned_boxes = []
+    for box in boxes:
+        if not isinstance(box, list) or len(box) != 4:
+            raise ValueError(f"box_2d không hợp lệ: {box}")
+        cleaned_boxes.append([int(v) for v in box])
+
+    if not cleaned_answers:
+        raise ValueError("Gemini không trả về đáp án nào")
+
+    if len(cleaned_answers) != len(cleaned_boxes):
+        raise ValueError("Số lượng answers và boxes_2d không khớp")
+
+    return cleaned_answers, cleaned_boxes
+
+
+# ============================================================
 # SOLVE + CLICK
 # ============================================================
 
 def solve_and_click():
-    global busy, last_screen_x, last_screen_y, last_answer
+    global busy, last_click_points, last_answers
 
     try:
         print()
@@ -857,12 +946,9 @@ def solve_and_click():
 
         api_time = time.perf_counter()
 
-        result = QuizResult.model_validate_json(
+        answers, boxes = parse_quiz_result(
             interaction.output_text
         )
-
-        answer = result.answer
-        box = result.box_2d
 
         # Gemini đã trả đáp án -> báo hiệu bằng con trỏ loading 1 lần.
         show_loading_cursor_once(
@@ -872,68 +958,77 @@ def solve_and_click():
         # Lưu đáp án đúng theo chính file ảnh vừa gửi Gemini.
         save_answer_for_image(
             screenshot_path,
-            answer
+            answers
         )
-
-        if len(box) != 4:
-            raise ValueError("box_2d không hợp lệ")
-
-        ymin = max(0, min(1000, box[0]))
-        ymax = max(0, min(1000, box[2]))
-
-        # Dùng Gemini để xác định đúng hàng theo Y
-        center_y_norm = (ymin + ymax) / 2
-
-        # Dùng mép trái bounding box của đáp án làm mốc X.
-        # Lùi nhẹ sang trái để click vào đầu ô/ngay trước phần chữ,
-        # thay vì click giữa chữ hoặc mép trái toàn vùng crop.
-        xmin = max(0, min(1000, box[1]))
 
         LEFT_OF_TEXT_PADDING = 10  # đơn vị normalized 0-1000
+        click_data = []
 
-        click_x_norm = max(
-            0,
-            xmin - LEFT_OF_TEXT_PADDING
-        )
+        for answer, box in zip(answers, boxes):
+            ymin = max(0, min(1000, box[0]))
+            xmin = max(0, min(1000, box[1]))
+            ymax = max(0, min(1000, box[2]))
 
-        crop_x = (
-            click_x_norm
-            / 1000
-            * crop_width
-        )
+            center_y_norm = (ymin + ymax) / 2
+            click_x_norm = max(0, xmin - LEFT_OF_TEXT_PADDING)
 
-        crop_y = (
-            center_y_norm
-            / 1000
-            * crop_height
-        )
+            crop_x = (
+                click_x_norm
+                / 1000
+                * crop_width
+            )
 
-        screen_x = int(left + crop_x) + 30
-        screen_y = int(top + crop_y)
+            crop_y = (
+                center_y_norm
+                / 1000
+                * crop_height
+            )
 
-        # ====================================================
-        # CHỈ LƯU TỌA ĐỘ - KHÔNG DI CHUỘT, KHÔNG CLICK
-        # ====================================================
+            screen_x = int(left + crop_x) + 30
+            screen_y = int(top + crop_y)
+
+            click_data.append(
+                {
+                    "answer": answer,
+                    "x": screen_x,
+                    "y": screen_y,
+                }
+            )
+
+        # Sắp xếp từ trên xuống dưới để click đúng thứ tự.
+        click_data.sort(key=lambda item: (item["y"], item["x"]))
 
         with coordinate_lock:
-            last_screen_x = screen_x
-            last_screen_y = screen_y
-            last_answer = answer
+            last_click_points = [
+                (item["x"], item["y"])
+                for item in click_data
+            ]
+            last_answers = [
+                item["answer"]
+                for item in click_data
+            ]
+
+        display_lines = [
+            f"Đáp án  : {','.join(last_answers)}",
+            f"Ảnh     : {screenshot_path.name}",
+            f"Số click: {len(click_data)}",
+            f"Đã ghi  : {ANSWER_FILE}",
+            "Đã lưu tất cả tọa độ",
+            f"Bấm {CLICK_HOTKEY} để click"
+        ]
+
+        for idx, item in enumerate(click_data, start=1):
+            display_lines.append(
+                f"{idx}. {item['answer']} -> ({item['x']}, {item['y']})"
+            )
 
         print()
 
         print_box(
             "GEMINI ĐÃ XỬ LÝ XONG",
-            [
-                f"Đáp án  : {answer}",
-                f"Ảnh     : {screenshot_path.name}",
-                f"Tọa độ  : ({screen_x}, {screen_y})",
-                f"Đã ghi  : {ANSWER_FILE}",
-                "Đã lưu tọa độ",
-                f"Bấm {CLICK_HOTKEY} để click"
-            ],
+            display_lines,
             color=GREEN,
-            width=62
+            width=72
         )
 
         finish_time = time.perf_counter()
@@ -972,11 +1067,10 @@ def solve_and_click():
 def click_saved_coordinate():
 
     with coordinate_lock:
-        x = last_screen_x
-        y = last_screen_y
-        answer = last_answer
+        points = list(last_click_points)
+        answers = list(last_answers)
 
-    if x is None or y is None:
+    if not points:
         print()
         print("⚠️ Chưa có tọa độ.")
         print(
@@ -985,37 +1079,35 @@ def click_saved_coordinate():
         return
 
     try:
-        # Di chuột tới tọa độ đã lưu
-        pyautogui.moveTo(
-            x,
-            y,
-            duration=MOVE_DURATION
-        )
-
-        time.sleep(CLICK_DELAY)
-
-        # Click chuột trái
-        pyautogui.click()
-
-        print()
-
         click_lines = [
-            f"Tọa độ : ({x}, {y})",
-            "Kiểu    : Di chuột + click",
-            "Con trỏ : Đã di chuyển tới tọa độ"
+            f"Số click : {len(points)}",
+            "Kiểu      : Di chuột + click từng tọa độ",
         ]
 
-        if answer:
-            click_lines.insert(
-                0,
-                f"Đáp án : {answer}"
+        for idx, (point, answer) in enumerate(zip(points, answers), start=1):
+            x, y = point
+
+            pyautogui.moveTo(
+                x,
+                y,
+                duration=MOVE_DURATION
             )
+
+            time.sleep(CLICK_DELAY)
+            pyautogui.click()
+            time.sleep(CLICK_DELAY)
+
+            click_lines.append(
+                f"{idx}. {answer} -> ({x}, {y})"
+            )
+
+        print()
 
         print_box(
             "ĐÃ CLICK",
             click_lines,
             color=PINK,
-            width=62
+            width=72
         )
 
     except pyautogui.FailSafeException:

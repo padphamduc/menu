@@ -5,9 +5,10 @@ _datas = []
 _binaries = []
 _hiddenimports = []
 
-_datas += [("assets/duc_logo.png", "assets"), ("assets/duc_logo.ico", "assets")]
+_datas += [("assets", "assets")]
+_datas += [("tools", "tools_seed")]
 
-for pkg in ["google.genai", "pydantic", "pyautogui", "keyboard", "colorama", "PIL"]:
+for pkg in ["google.genai", "pydantic", "pyautogui", "keyboard", "colorama", "PIL", "pystray", "cv2", "requests", "pyperclip", "Cryptodome", "Crypto"]:
     try:
         d, b, h = collect_all(pkg)
         _datas += d
@@ -25,6 +26,7 @@ for pkg in ["httpx", "httpcore", "anyio", "sniffio", "websockets", "google.auth"
         _hiddenimports += collect_submodules(pkg)
     except Exception:
         pass
+
 
 a = Analysis(
     ["launcher_exe.py"],
