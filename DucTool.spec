@@ -8,7 +8,27 @@ _hiddenimports = []
 _datas += [("assets", "assets")]
 _datas += [("tools", "tools_seed")]
 
-for pkg in ["google.genai", "pydantic", "pyautogui", "keyboard", "colorama", "PIL", "pystray", "cv2", "requests", "pyperclip", "Cryptodome", "Crypto"]:
+_hiddenimports += [
+    "tkinter",
+    "tkinter.messagebox",
+    "tkinter.simpledialog",
+    "tkinter.filedialog",
+    "tkinter.ttk",
+    "webbrowser",
+    "runpy",
+    "ctypes",
+    "ctypes.wintypes",
+    "hashlib",
+    "shutil",
+    "tempfile",
+    "zipfile",
+    "urllib",
+    "urllib.request",
+    "urllib.parse",
+    "urllib.error",
+]
+
+for pkg in ["tkinter", "google.genai", "pydantic", "pyautogui", "keyboard", "colorama", "PIL", "pystray", "cv2", "requests", "pyperclip", "Cryptodome", "Crypto"]:
     try:
         d, b, h = collect_all(pkg)
         _datas += d
