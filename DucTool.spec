@@ -28,7 +28,7 @@ _hiddenimports += [
     "urllib.error",
 ]
 
-for pkg in ["tkinter", "google.genai", "pydantic", "pyautogui", "keyboard", "colorama", "PIL", "pystray", "cv2", "requests", "pyperclip", "Cryptodome", "Crypto"]:
+for pkg in ["tkinter", "google.genai", "pydantic", "pyautogui", "keyboard", "colorama", "PIL", "pystray", "cv2", "requests", "pyperclip", "Cryptodome", "Crypto", "pynput"]:
     try:
         d, b, h = collect_all(pkg)
         _datas += d
