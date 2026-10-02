@@ -4,7 +4,7 @@
   "description": "Khởi chạy ứng dụng SEB_VIP đã được cấu hình trên máy tính.",
   "version": "5.0.0",
   "entry": "main.py",
-  "order": 9,
+  "order": 7,
   "show_setup": false,
   "button_text": "MỞ SEB"
 }
