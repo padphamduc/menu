@@ -1,8 +1,8 @@
 {
   "id": "seb_mouse",
-  "name": "TOOL SEB MOUSE",
-  "description": "Điều khiển chuột: Nhấp đúp chuột phải để chụp full màn gửi Gemini giải đề, nhấp đúp chuột trái hiện dấu đáp án & số câu, nhấp 1 lần chuột trái để ẩn.",
+  "name": "Tool v3 – Dùng chuột để Gửi và Nhận đề (An toàn).",
+  "description": "Điều khiển chuột: Nhấp đúp chuột phải để chụp full màn gửi AI giải đề, nhấp đúp chuột trái hiện dấu đáp án & số câu, nhấp 1 lần chuột trái để ẩn.",
   "version": "5.0.0",
   "entry": "main.py",
-  "order": 25
+  "order": 1
 }

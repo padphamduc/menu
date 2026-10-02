@@ -1,8 +1,8 @@
 {
   "id": "seb_mark",
-  "name": "TOOL SEB Đánh Dấu v1.1",
+  "name": "Tool v1.1 – Chụp 4/5 màn hình và Đánh dấu chấm đỏ.",
   "description": "Chụp 4/5 màn hình, phân tích đáp án và hiển thị dấu chấm đỏ ngay vị trí đáp án (bấm nút để hiện/ẩn, không tự click chuột, an toàn 100%).",
   "version": "5.0.0",
   "entry": "main.py",
-  "order": 15
+  "order": 3
 }

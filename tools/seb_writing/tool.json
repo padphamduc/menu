@@ -1,8 +1,8 @@
 {
   "id": "seb_writing",
-  "name": "Tool Chụp Màn V2 -> SEB writing",
-  "description": "Chuyên đề Writing/Tự luận SEB. Chụp ảnh hoặc Ctrl+Shift+R bôi đen đề -> Gemini làm bài -> Tự gõ đáp án vào SEB bằng phím '-' hoặc Ctrl+V.",
+  "name": "Tool v4 – Chuyên Writing Chụp và Chat với AI",
+  "description": "Chuyên đề Writing/Tự luận SEB. Chụp ảnh hoặc bôi đen đề -> AI làm bài -> Tự động gõ đáp án vào SEB chống chặn paste.",
   "version": "5.0.0",
   "entry": "main.py",
-  "order": 30
+  "order": 6
 }

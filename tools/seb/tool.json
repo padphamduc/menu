@@ -1,8 +1,8 @@
 {
   "id": "seb",
-  "name": "Tool SEB v1",
-  "description": "Chụp 4/5 màn hình không bị dính thời gian và phân tích đáp án ( Trỏ đến KHUNG ĐÁP ÁN đúng có thể không chuẩn nút bấm ) | Hỗ trợ câu có nhiều đáp án: click nhiều tọa độ tương ứng.",
+  "name": "Tool v1 – Chụp 4/5 màn hình và Click chuột, phím tắt.",
+  "description": "Chụp 4/5 màn hình không bị dính thời gian và phân tích đáp án | Hỗ trợ câu có nhiều đáp án: click nhiều tọa độ tương ứng.",
   "version": "5.0.0",
   "entry": "main.py",
-  "order": 10
+  "order": 2
 }
