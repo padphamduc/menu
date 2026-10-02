@@ -60,8 +60,10 @@ def main():
     # 1. launcher_exe.py
     src_launcher = base_clean / "launcher_exe.py"
     if src_launcher.exists():
-        print(f"Processing launcher_exe.py...")
-        process_file(src_launcher, [base_toolseb / "launcher_exe.py"])
+        process_file(src_launcher, [
+            base_toolseb / "launcher_exe.py",
+            base_duc / "launcher_online.py",
+        ])
 
     # 2. core/
     src_core = base_clean / "core"
