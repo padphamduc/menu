@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
+r"""
 Synchronization and Build Pipeline for DucTool
 Mã hóa tự động từ src_clean/ sang môi trường triển khai (D:\TOOLSEB, C:\duc) và biên dịch DucTool.exe
 """
@@ -84,6 +84,11 @@ def main():
                     base_toolseb / "tools_seed" / tool_dir.name / py_file.name,
                     base_duc / "tools" / tool_dir.name / py_file.name,
                 ])
+            for json_file in tool_dir.glob("*.json"):
+                print(f"Copying tools/{tool_dir.name}/{json_file.name}...")
+                for d in [base_toolseb / "tools" / tool_dir.name, base_toolseb / "tools_seed" / tool_dir.name, base_duc / "tools" / tool_dir.name]:
+                    d.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(json_file, d / json_file.name)
 
     print("\n==========================================")
     print(" [2/3] BIÊN DỊCH DUCTOOL.EXE BẰNG PYINSTALLER")
