@@ -115,8 +115,19 @@ def main():
         try:
             shutil.copy2(built_exe, target_duc_exe)
             print(f"✔ Đã copy {built_exe} -> {target_duc_exe}")
-        except Exception as e:
-            print(f"⚠️ Không thể copy tới {target_duc_exe} (có thể tiến trình đang chạy): {e}")
+        except Exception:
+            old_exe = base_duc / "DucTool.exe.old"
+            try:
+                if old_exe.exists():
+                    try:
+                        old_exe.unlink()
+                    except Exception:
+                        pass
+                target_duc_exe.rename(old_exe)
+                shutil.copy2(built_exe, target_duc_exe)
+                print(f"✔ Đã thay thế thành công (qua rename): {built_exe} -> {target_duc_exe}")
+            except Exception as e2:
+                print(f"⚠️ Không thể copy tới {target_duc_exe}: {e2}")
         print("\n🎉 HOÀN TẤT ĐỒNG BỘ VÀ BUILD THÀNH CÔNG!")
     else:
         print("\n❌ Không tìm thấy dist\\DucTool.exe sau khi build!")
