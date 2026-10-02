@@ -7,8 +7,17 @@ _hiddenimports = []
 
 _datas += [("assets", "assets")]
 _datas += [("tools", "tools_seed")]
+_datas += [("core", "core")]
 
 _hiddenimports += [
+    "core",
+    "core.ai_client",
+    "core.sheet_updater",
+    "core.permission_manager",
+    "core.seb_detector",
+    "core.hotkey_manager",
+    "core.app_logger",
+    "core.screen_capture",
     "tkinter",
     "tkinter.messagebox",
     "tkinter.simpledialog",
