@@ -5,6 +5,7 @@
 # Trả kết quả: Tự gõ đáp án bằng phím riêng hoặc Ctrl+V
 # ============================================================
 
+import sys
 import ctypes
 from ctypes import wintypes
 import os
@@ -14,6 +15,13 @@ import base64
 import threading
 import urllib.error
 from pathlib import Path
+
+# Đảm bảo import được module 'core' dù chạy từ Launcher hay chạy độc lập bằng dòng lệnh python
+_file_dir = Path(__file__).resolve().parent
+for _p in [_file_dir.parent.parent, _file_dir.parent, Path(r"C:\duc"), Path(r"d:\TOOLSEB"), Path(r"d:\TOOLSEB\src_clean")]:
+    _p_str = str(_p)
+    if _p.exists() and _p_str not in sys.path:
+        sys.path.insert(0, _p_str)
 
 import keyboard
 import pyautogui
@@ -38,6 +46,11 @@ RESET = Style.RESET_ALL
 
 if os.name == "nt":
     os.system("chcp 65001 > nul")
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     try:
         os.system("title Tool Chụp Màn V2 -> SEB Writing")
     except Exception:
