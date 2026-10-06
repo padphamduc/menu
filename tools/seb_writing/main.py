@@ -23,6 +23,12 @@ for _p in [_file_dir.parent.parent, _file_dir.parent, Path(r"C:\duc"), Path(r"d:
     if _p.exists() and _p_str not in sys.path:
         sys.path.insert(0, _p_str)
 
+try:
+    from core.permission_manager import request_admin
+    request_admin(show_dialog_on_cancel=False)
+except Exception:
+    pass
+
 import keyboard
 import pyautogui
 import pyperclip
@@ -642,6 +648,25 @@ QUY TẮC BẮT BUỘC:
 - Xuất văn bản thuần túy để tự động gõ vào ô bài thi SEB.
 """
 
+WRITING_PROMPT_AUTO_SCREENSHOT = """
+Bạn là chuyên gia giải đề thi và viết bài Writing chuyên nghiệp (IELTS, VSTEP, TOEFL, Tiếng Anh/Tiếng Việt, Văn học, Tự luận học thuật).
+Học sinh vừa bôi đen đề bài trên màn hình làm bài thi SEB (hoặc bài thi đang hiển thị trực tiếp trên màn hình này).
+
+NHIỆM VỤ:
+1. Đọc kỹ hình ảnh màn hình bài thi, ĐẶC BIỆT chú ý đến đoạn văn bản hoặc câu hỏi đang được BÔI ĐEN (highlight xanh/xám) hoặc câu hỏi bài thi trọng tâm hiển thị trên màn hình.
+2. Đọc kỹ yêu cầu đề bài (dạng bài, chủ đề, số từ yêu cầu nếu có, ví dụ 150 từ, 250 từ).
+3. Viết bài hoàn chỉnh, mạch lạc, ý tứ sâu sắc, từ vựng phong phú, chuẩn cấu trúc ngữ pháp.
+4. Nếu đây là câu hỏi nối tiếp của phiên làm bài: Hãy kết hợp hoàn toàn với ngữ cảnh đã trao đổi trước đó để trả lời chính xác nhất.
+5. Nếu là dạng bài luận (Essay / Task 2 / Thư tín): Viết đầy đủ Mở bài - Thân bài - Kết bài theo đúng độ dài tiêu chuẩn.
+6. Nếu là trắc nghiệm hoặc bài tập ngắn: Trả về trực tiếp đáp án chính xác.
+
+QUY TẮC BẮT BUỘC:
+- Trực tiếp đưa ra nội dung bài viết/đáp án.
+- TUYỆT ĐỐI KHÔNG thêm lời chào, mở đầu hay kết luận thừa thãi.
+- KHÔNG dùng markdown code block ```.
+- Xuất văn bản thuần túy để tự động gõ vào ô bài thi SEB.
+"""
+
 
 # ============================================================
 # TỰ ĐỘNG GÕ ĐÁP ÁN BẰNG PYTHON (SendInput)
@@ -934,8 +959,117 @@ def trigger_send():
 # TÍNH NĂNG BÔI ĐEN VĂN BẢN VÀ BẤM SELECTION_HOTKEY
 # ============================================================
 
+def send_auto_screenshot():
+    """Tự động chụp màn hình và gửi AI khi SEB chặn Copy văn bản."""
+    global last_answer, current_interaction_id, turn_count
+
+    try:
+        image = capture_screen()
+        path = get_next_screenshot_path()
+        image.save(path, format="JPEG", quality=JPEG_QUALITY)
+
+        print()
+        print_box(
+            "TỰ ĐỘNG CHỤP MÀN HÌNH ĐỀ BÀI (VƯỢT CHẶN COPY SEB)",
+            [
+                f"File: {path.name}",
+                "Trạng thái: SEB chặn Copy -> Đã chụp ảnh màn hình gửi AI giải...",
+                f"Model: {CONFIG.get('model_name', MODEL)}",
+            ],
+            color=CYAN,
+            width=76,
+        )
+
+        start = time.perf_counter()
+        image_bytes = path.read_bytes()
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+
+        input_parts = [
+            {
+                "type": "image",
+                "data": image_base64,
+                "mime_type": "image/jpeg",
+            },
+            {
+                "type": "text",
+                "text": WRITING_PROMPT_AUTO_SCREENSHOT,
+            }
+        ]
+
+        with interaction_lock:
+            prev_id = current_interaction_id
+            curr_turn = turn_count + 1
+
+        extra_kwargs = {}
+        if prev_id:
+            extra_kwargs["previous_interaction_id"] = prev_id
+
+        try:
+            interaction = client.interactions.create(
+                model=MODEL,
+                input=input_parts,
+                **extra_kwargs,
+            )
+        except Exception as api_err:
+            if prev_id:
+                print(YELLOW + "⚠ Không thể nối tiếp ngữ cảnh cũ trên server, đang khởi tạo bản nháp mới...")
+                interaction = client.interactions.create(
+                    model=MODEL,
+                    input=input_parts,
+                )
+            else:
+                raise api_err
+
+        if hasattr(interaction, "id") and interaction.id:
+            with interaction_lock:
+                current_interaction_id = interaction.id
+                turn_count = curr_turn
+
+        answer = (interaction.output_text or "").strip()
+        if not answer:
+            raise RuntimeError(f"{P_NAME} không trả về kết quả.")
+
+        with answer_lock:
+            last_answer = answer
+
+        pyperclip.copy(answer)
+        ANSWER_FILE.write_text(answer + "\n", encoding="utf-8")
+
+        elapsed = time.perf_counter() - start
+        threading.Thread(target=show_loading_cursor_once, args=(CURSOR_LOAD_DURATION,), daemon=True).start()
+
+        lines_preview = answer.splitlines()[:4]
+        session_status = f"Bản nháp lượt #{curr_turn}: " + ("Đã kết nối câu trước" if prev_id else "Bắt đầu bản nháp mới")
+
+        print()
+        print_box(
+            f"{P_NAME.upper()} ĐÃ HOÀN THÀNH BÀI VIẾT (TỪ ẢNH CHỤP)",
+            [
+                session_status,
+                f"Thời gian: {elapsed:.2f}s | Số ký tự: {len(answer)}",
+                "Trích đoạn kết quả:",
+            ] + [f"  > {line}" for line in lines_preview] + [
+                "",
+                f"👉 Bấm phím '{TYPE_HOTKEY}' để TỰ ĐỘNG GÕ vào SEB (chống chặn paste)",
+                f"👉 Bấm phím '{STOP_HOTKEY.upper()}' nếu muốn DỪNG GÕ phím",
+                "👉 Phím F8: Bắt đầu bản nháp mới (xóa nhớ câu trước)",
+                "👉 Hoặc bấm Ctrl + V để dán thủ công nếu ứng dụng cho phép",
+            ],
+            color=GREEN,
+            width=76,
+        )
+        try:
+            import winsound
+            winsound.Beep(1800, 150)
+        except Exception:
+            pass
+
+    except Exception as e:
+        print(RED + f"❌ Lỗi gửi ảnh tự động: {e}")
+
+
 def process_selected_text():
-    """Hàm xử lý khi bấm SELECTION_HOTKEY: Tự copy text bôi đen -> gửi AI."""
+    """Hàm xử lý khi bấm SELECTION_HOTKEY: Tự copy text bôi đen -> gửi AI (hoặc tự chụp màn hình nếu SEB chặn copy)."""
     global busy, last_answer, current_interaction_id, turn_count
 
     with busy_lock:
@@ -991,27 +1125,8 @@ def process_selected_text():
 
         # BƯỚC 6: KIỂM TRA KẾT QUẢ COPY
         if not selected_text or selected_text == prev_answer_text:
-            print()
-            print_box(
-                "KHÔNG THỂ COPY VĂN BẢN TỪ SEB",
-                [
-                    "Trang thi hoặc SEB đã chặn thao tác sao chép (Copy) văn bản!",
-                    "Tool KHÔNG lấy lại câu trả lời cũ của Gemini để tránh gửi sai đề.",
-                    "",
-                    "👉 GIẢI PHÁP THAY THẾ CỰC KỲ DỄ DÀNG:",
-                    f"  1. Bấm phím '{CAPTURE_HOTKEY}' để Chụp ảnh màn hình đề bài.",
-                    f"  2. Bấm phím '{SEND_HOTKEY}' để Gửi ảnh cho {P_NAME} giải và viết bài hoàn chỉnh!",
-                    "",
-                    "💡 Mẹo: Chụp ảnh hoàn toàn miễn nhiễm với mọi cơ chế chống Copy của SEB.",
-                ],
-                color=YELLOW,
-                width=76,
-            )
-            try:
-                import winsound
-                winsound.Beep(900, 200)
-            except Exception:
-                pass
+            # SEB hoặc trang thi chặn lệnh Copy -> TỰ ĐỘNG CHỤP MÀN HÌNH BÀI THI VÀ GỬI CHO AI GIẢI NGAY!
+            send_auto_screenshot()
             return
 
         if not API_KEY or not API_KEY.strip():
@@ -1157,10 +1272,10 @@ print()
 
 keyboard.add_hotkey(CAPTURE_HOTKEY, capture_image, suppress=True)
 keyboard.add_hotkey(SEND_HOTKEY, trigger_send, suppress=True)
-keyboard.add_hotkey(SELECTION_HOTKEY, trigger_selection_hotkey, suppress=False)
+keyboard.add_hotkey(SELECTION_HOTKEY, trigger_selection_hotkey, suppress=True)
 if SELECTION_HOTKEY.lower().strip() != "ctrl+shift+n":
     try:
-        keyboard.add_hotkey("ctrl+shift+n", trigger_selection_hotkey, suppress=False)
+        keyboard.add_hotkey("ctrl+shift+n", trigger_selection_hotkey, suppress=True)
     except Exception:
         pass
 keyboard.add_hotkey(TYPE_HOTKEY, trigger_auto_type, suppress=True)
