@@ -2,7 +2,7 @@
   "id": "seb_writing",
   "name": "Tool v4 – Chuyên Writing Chụp và Chat với AI",
   "description": "Chuyên đề Writing/Tự luận SEB. Chụp ảnh hoặc bôi đen đề -> AI làm bài -> Tự động gõ đáp án vào SEB chống chặn paste.",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "entry": "main.py",
   "order": 6
 }
