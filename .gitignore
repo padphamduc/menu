@@ -5,8 +5,10 @@ gemini_api_key.txt
 openai_key.txt
 github_token.bin
 license.dat
-ai_credentials.bin
 active_ai.json
+ai_credentials.bin
+cached_models.json
+SEB
 
 # Build artifacts & virtual environments
 .claude/
@@ -25,6 +27,7 @@ DucTool.exe
 backup*/
 current_slot.txt
 dapan.txt
+dapan_v31.txt
 dangbai*.txt
 last_fen.txt
 debug_*.txt

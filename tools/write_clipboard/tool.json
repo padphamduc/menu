@@ -1,0 +1,8 @@
+{
+  "id": "write_clipboard",
+  "name": "Write From Clipboard",
+  "description": "Tự động gõ nội dung clipboard gần nhất vào ô bài thi (chống Safe Exam Browser / web thi chặn Ctrl+V).",
+  "version": "1.0.0",
+  "entry": "main.py",
+  "order": 45
+}

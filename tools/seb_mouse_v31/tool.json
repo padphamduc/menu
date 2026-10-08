@@ -1,0 +1,8 @@
+{
+  "id": "seb_mouse_v31",
+  "name": "Tool v3.1 Dùng Chuột ( Thêm tính năng hiển thị đáp án tự luận )",
+  "version": "3.1.0",
+  "description": "Chụp và phân tích đề thi hoàn toàn bằng chuột (Chuột phải x2 gửi ảnh đến Gemini, Chuột trái x2 hiện chấm đỏ trắc nghiệm + chữ tự luận nổi góc dưới bên phải, Chuột trái x1 ẩn kết quả, Chuột trái x4 tự động gõ đáp án).",
+  "entry": "main.py",
+  "order": 2
+}
