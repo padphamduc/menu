@@ -28,6 +28,7 @@ backup*/
 current_slot.txt
 dapan.txt
 dapan_v31.txt
+dapan_v32.txt
 dangbai*.txt
 last_fen.txt
 debug_*.txt
@@ -61,3 +62,5 @@ exe_*.txt
 /src_clean/
 tools/*/.managed_by_duc_launcher
 tools/*/.sync.json
+tools_seed/*/.managed_by_duc_launcher
+tools_seed/*/.sync.json

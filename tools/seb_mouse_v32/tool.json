@@ -1,0 +1,8 @@
+{
+  "id": "seb_mouse_v32",
+  "name": "Tool v3.2 – Dùng chuột (Hiện đáp án tại vị trí số câu)",
+  "version": "3.2.0",
+  "description": "Điều khiển 100% bằng chuột. Thay vì vẽ chấm đỏ, hiển thị trực tiếp số câu kèm ký hiệu đáp án tại vị trí số câu (ví dụ '99 A', '99 A, C'). Giữ nguyên toàn bộ tính năng tự luận, điền ngắn và tự gõ của v3.1.",
+  "entry": "main.py",
+  "order": 3
+}
